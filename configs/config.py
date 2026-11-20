@@ -13,9 +13,9 @@ IN_CHANNELS = (
 OUT_CHANNELS = 1  # 二值分割只出 1 个 logit 通道，配 BCEWithLogitsLoss
 BASE_CHANNELS = 64  # 论文首层通道数，冒烟不降；通道序列由它派生
 NUM_DOWNS = 4  # 4 次下采样 → MIN_SIZE = 16；改它要同步改模型层数
-BILINEAR = False  # 原论文用转置卷积；改 True 换成双线性插值，参数更少
+BILINEAR = True  # 原论文用转置卷积；改 True 换成双线性插值，参数更少
 PADDING_MODE = "same"  # padding=1 保持等大输出，训练/评估形状直接对齐；"valid" 为论文原版，需中心裁剪
-USE_BATCH_NORM = False  # 原论文无 BN；改 True 可对齐 milesial/Pytorch-UNet 的默认行为
+USE_BATCH_NORM = True  # 原论文无 BN；改 True 可对齐 milesial/Pytorch-UNet 的默认行为
 
 # ============================================================
 # 二、数据
@@ -67,7 +67,7 @@ DEVICE = (
 # ============================================================
 # 四、路径
 # ============================================================
-RUN_NAME = "unet_pet_s256_b64"  # 固定名不用时间戳——训练与推理是两个进程，时间戳目录会对不上；s256=尺寸，b64=BASE_CHANNELS
+RUN_NAME = "unet_pet_s256_b64_bn_bilinear"  # 固定名不用时间戳——训练与推理是两个进程，时间戳目录会对不上；s256=尺寸，b64=BASE_CHANNELS
 # TODO 待你确认：项目 README 与 .gitignore 约定的是 ./checkpoints/{RUN_NAME}，此处 ./ckpt/ 与之不一致
 CKPT_DIR = f"./checkpoints/{RUN_NAME}"  # 由 RUN_NAME 派生，禁止另写一遍路径
 
