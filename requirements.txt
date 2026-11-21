@@ -1,0 +1,29 @@
+# ============================================================
+# U-Net 复现 — 项目依赖
+# 论文: U-Net: Convolutional Networks for Biomedical Image Segmentation
+# 数据集: Oxford-IIIT Pet（默认）/ toy（冒烟）/ folder（自定义）
+# ============================================================
+# 环境约定：
+#   本机   : RTX 3050 Laptop 4GB，只跑 --smoke（几分钟内）
+#   服务器 : RTX 5080 16GB，跑全量训练/评估
+#   Python : >= 3.10（开发环境 3.12）
+#
+# 安装（由你本人在终端执行）：
+#   本机 3050（CUDA 12.6）：
+#     pip install torch==2.14.0 torchvision==0.29.0 \
+#         --index-url https://download.pytorch.org/whl/cu126
+#   服务器 5080（CUDA 13.2）：
+#     pip install torch==2.14.0 torchvision==0.29.0 \
+#         --index-url https://download.pytorch.org/whl/cu132
+#   然后：
+#     pip install -r requirements.txt
+#
+# 说明：torch / torchvision 的 CUDA 变体由安装源决定；
+#       PEP 440 下 ==2.14.0 兼容 2.14.0+cu126 / +cu132。
+# ============================================================
+
+torch==2.14.0
+torchvision==0.29.0
+numpy>=1.26
+Pillow>=10.0
+matplotlib>=3.8

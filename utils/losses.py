@@ -12,7 +12,7 @@ class DiceLoss(nn.Module):
     def __init__(self, smooth=1.0):
         super().__init__()
         # TODO 1: self.smooth = smooth
-        pass
+        self.smooth = smooth
 
     def forward(self, logits, target):
         # TODO 2: probs = torch.sigmoid(logits)
@@ -20,7 +20,11 @@ class DiceLoss(nn.Module):
         # TODO 4: union = probs.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
         # TODO 5: dice = (2 * inter + self.smooth) / (union + self.smooth)
         # TODO 6: return 1 - dice.mean()
-        pass
+        probs = torch.sigmoid(logits)
+        inter = (probs * target).sum(dim=(1, 2, 3))
+        union = probs.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
+        dice = (2 * inter + self.smooth) / (union + self.smooth)
+        return 1 - dice.mean()
 
 
 class BCEDiceLoss(nn.Module):
@@ -31,14 +35,26 @@ class BCEDiceLoss(nn.Module):
         # TODO 7: self.bce = nn.BCEWithLogitsLoss()
         # TODO 8: self.dice = DiceLoss()
         # TODO 9: 保存 bce_weight / dice_weight
-        pass
+        self.bce = nn.BCEWithLogitsLoss()
+        self.dice = DiceLoss()
+        self.bce_weight = bce_weight
+        self.dice_weight = dice_weight
 
     def forward(self, logits, target):
         # TODO 10: 返回加权和
-        pass
+        bce_loss = self.bce(logits, target)
+        dice_loss = self.dice(logits, target)
+        return self.bce_weight * bce_loss + self.dice_weight * dice_loss
 
 
 def build_loss():
     """按 cfg.LOSS 返回可调用损失"""
     # TODO 11: 三个分支 + 非法值 raise ValueError
-    pass
+    if cfg.LOSS == "bce":
+        return nn.BCEWithLogitsLoss()
+    elif cfg.LOSS == "dice":
+        return DiceLoss()
+    elif cfg.LOSS == "bce_dice":
+        return BCEDiceLoss(cfg.BCE_WEIGHT, cfg.DICE_WEIGHT)
+    else:
+        raise ValueError(f"未知损失类型 {cfg.LOSS}")
