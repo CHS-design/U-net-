@@ -2,17 +2,21 @@
 
 职责：
     1. 从 checkpoints/{RUN_NAME}/best.pt 加载 state_dict
-    2. model.eval() 后在 test 集上统计 Dice / IoU / 像素准确率
+    2. model.eval() 后在 test 集上统计损失与指标（二值 Dice/IoU/acc 或多类 mIoU/mAcc）
     3. test 集只在最后用一次；训练期选优只用 val
     4. 输出总指标；test 集不参与训练或早停
 
 用法：
-    python evaluate.py
-    python evaluate.py --run-name smoke_toy --smoke --max-batches 1
+    python scripts/evaluate.py
+    python scripts/evaluate.py --run-name smoke_toy --smoke --max-batches 1
 """
 
 import argparse
 import os
+import sys
+
+# 允许从项目根目录直接运行 python scripts/xxx.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
 from torch.utils.data import DataLoader
@@ -29,7 +33,7 @@ def load_model(ckpt_path, device):
     if not os.path.exists(ckpt_path):
         raise FileNotFoundError(f"找不到权重: {ckpt_path}")
 
-    model = UNet().to(device)
+    model = UNet().to(device).to(memory_format=torch.channels_last)
     state = torch.load(ckpt_path, map_location=device, weights_only=True)
     model.load_state_dict(state)
     model.eval()
@@ -57,8 +61,8 @@ def main(run_name=None, max_batches=None):
     print(f"checkpoint: {ckpt_path}")
     print(f"test samples: {len(test_set)}")
     print(f"loss: {loss:.4f}")
-    for name in ("dice", "iou", "acc"):
-        print(f"{name}: {metrics[name]:.4f}")
+    for name, value in metrics.items():
+        print(f"{name}: {value:.4f}")
 
 
 if __name__ == "__main__":
@@ -83,6 +87,9 @@ if __name__ == "__main__":
 
     if args.smoke:
         cfg.DATASET = "toy"
+        cfg.TASK = "binary"
+        cfg.OUT_CHANNELS = 1
+        cfg.LOSS = "bce_dice"
         cfg.BATCH_SIZE = 2
         cfg.IMAGE_SIZE = 64
         cfg.NUM_WORKERS = 0

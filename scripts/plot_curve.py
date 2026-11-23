@@ -2,18 +2,22 @@
 
 职责：
     1. 读 checkpoints/{RUN_NAME}/loss_history.json
-    2. 画 train/val 的 loss / Dice / IoU / Acc 曲线
+    2. 画 train/val 的 loss 与 history 中实际记录的指标曲线
     3. 保存 loss_curve.png 到同一实验目录
     4. 与训练解耦：随时可重跑，不依赖训练进程
 
 用法：
-    python plot_curve.py
-    python plot_curve.py --run-name smoke_toy
+    python scripts/plot_curve.py
+    python scripts/plot_curve.py --run-name smoke_toy
 """
 
 import argparse
 import json
 import os
+import sys
+
+# 允许从项目根目录直接运行 python scripts/xxx.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import matplotlib
 
@@ -60,22 +64,21 @@ def main(run_name=None):
     epochs = [h["epoch"] for h in history]
     train_loss = [h["train_loss"] for h in history]
     val_loss = [h["val_loss"] for h in history]
-    train_dice = [_metric(h, "train", "dice") for h in history]
-    val_dice = [_metric(h, "val", "dice") for h in history]
-    train_iou = [_metric(h, "train", "iou") for h in history]
-    val_iou = [_metric(h, "val", "iou") for h in history]
-    train_acc = [_metric(h, "train", "acc") for h in history]
-    val_acc = [_metric(h, "val", "acc") for h in history]
-
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    _plot_metric(axes[0, 0], epochs, train_loss, val_loss, "Loss", "loss")
-    _plot_metric(
-        axes[0, 1], epochs, train_dice, val_dice, "Dice", "dice"
+    metric_names = list(history[0]["train_metrics"].keys())
+    fig, axes = plt.subplots(
+        1, 1 + len(metric_names), figsize=(4 * (1 + len(metric_names)), 4)
     )
-    _plot_metric(axes[1, 0], epochs, train_iou, val_iou, "IoU", "iou")
-    _plot_metric(
-        axes[1, 1], epochs, train_acc, val_acc, "Pixel Accuracy", "accuracy"
-    )
+    axes = axes if hasattr(axes, "__len__") else [axes]
+    _plot_metric(axes[0], epochs, train_loss, val_loss, "Loss", "loss")
+    for ax, name in zip(axes[1:], metric_names):
+        _plot_metric(
+            ax,
+            epochs,
+            [_metric(h, "train", name) for h in history],
+            [_metric(h, "val", name) for h in history],
+            name.upper(),
+            name,
+        )
 
     fig.suptitle(f"{run_name} — training curves")
     fig.tight_layout()

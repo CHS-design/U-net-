@@ -1,5 +1,6 @@
 """utils/data.py — 数据加载与预处理"""
 
+import random
 from pathlib import Path
 
 import torch
@@ -9,10 +10,16 @@ from torchvision import transforms
 from torchvision.datasets import OxfordIIITPet
 
 from configs import config as cfg
+from utils.metrics import validate_labels
 
 
-def build_image_transform():
-    """PIL 图像 → 归一化后的 (3,H,W) float32 张量"""
+def build_image_transform(augment=False):
+    """PIL 图像 → 归一化后的 (3,H,W) float32 张量
+
+    几何增强（水平/垂直翻转）在 JointTransform 里对图像和掩膜同步做。
+    这里不做光度扰动（ColorJitter）——病害判别依赖颜色/纹理，避免扰动丢失信息。
+    augment 参数保留仅为接口一致。
+    """
     return transforms.Compose(
         [
             transforms.Resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE)),
@@ -38,33 +45,42 @@ def build_mask_transform():
 
 
 class JointTransform:
-    """把图像变换与掩膜变换组合成一个可调用对象"""
+    """把图像变换与掩膜变换组合成一个可调用对象
 
-    def __init__(self, image_tf, mask_tf):
-        # TODO 1: 把两个变换存到 self.image_tf / self.mask_tf
+    augment=True 时对图像和掩膜做同步的随机水平/垂直翻转（同一个随机决策），
+    保证掩膜与图像严格对齐。ColorJitter 只作用于图像，已包含在 image_tf 中。
+    """
+
+    def __init__(self, image_tf, mask_tf, augment=False):
         self.image_tf = image_tf
         self.mask_tf = mask_tf
+        self.augment = augment
 
     def __call__(self, image, mask):
-        # TODO 2: 分别对 image 和 mask 应用变换，返回二元组
+        if self.augment:
+            if random.random() < 0.5:
+                image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                mask = mask.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            if random.random() < 0.5:
+                image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+                mask = mask.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         return self.image_tf(image), self.mask_tf(mask)
 
 
 class OxfordPetSegDataset(Dataset):
     """Oxford Pet 二值分割数据集（trimap == 1 为前景）"""
 
-    def __init__(self, split="trainval", root=cfg.DATA_ROOT):
+    def __init__(self, split="trainval", root=cfg.DATA_ROOT, augment=False):
         super().__init__()
-        # TODO 3: 建基础数据集 OxfordIIITPet(
-        #             root=root, split=split, target_types="segmentation",
-        #             transforms=JointTransform(build_image_transform(), build_mask_transform()),
-        #             download=False)
-        #         存到 self.base
         self.base = OxfordIIITPet(
             root=root,
             split=split,
             target_types="segmentation",
-            transforms=JointTransform(build_image_transform(), build_mask_transform()),
+            transforms=JointTransform(
+                build_image_transform(augment=augment),
+                build_mask_transform(),
+                augment=augment,
+            ),
             download=False,
         )
 
@@ -120,6 +136,64 @@ class FolderSegDataset(Dataset):
         return image, mask
 
 
+class PlantSegSegDataset(Dataset):
+    """PlantSeg 语义分割：images/{split} 与 annotations/{split} 同名配对
+
+    PNG 是类别索引图：0=背景，N（1~115）=第 N 类病害。
+    TASK="multiclass" 时保留原索引 (H,W) int64，配 116 类交叉熵；
+    TASK="binary" 时仍压成 (1,H,W) float{0,1}，兼容旧二值链路。
+    """
+
+    def __init__(self, split="train", root=cfg.PLANTSEG_ROOT, augment=False):
+        super().__init__()
+        if split not in ("train", "val", "test"):
+            raise ValueError(f"PlantSeg split 只能是 train/val/test，收到 {split!r}")
+        root = Path(root)
+        self.images_dir = root / "images" / split
+        self.masks_dir = root / "annotations" / split
+        for d in (self.images_dir, self.masks_dir):
+            if not d.is_dir():
+                raise FileNotFoundError(f"PlantSeg 目录不存在: {d}")
+
+        self.image_paths = sorted(
+            p
+            for p in self.images_dir.iterdir()
+            if p.suffix.lower() in (".jpg", ".jpeg", ".png")
+        )
+        if not self.image_paths:
+            raise FileNotFoundError(f"PlantSeg 目录下没有图像: {self.images_dir}")
+        for p in self.image_paths:
+            mask_path = self.masks_dir / f"{p.stem}.png"
+            if not mask_path.exists():
+                raise FileNotFoundError(f"缺少掩膜: {mask_path}")
+
+        self.joint = JointTransform(
+            build_image_transform(augment=augment),
+            build_mask_transform(),
+            augment=augment,
+        )
+        self.threshold = cfg.PLANTSEG_MASK_THRESHOLD
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        mask_path = self.masks_dir / f"{image_path.stem}.png"
+        with Image.open(image_path) as im:
+            image = im.convert("RGB")
+        with Image.open(mask_path) as im:
+            mask = im.convert("L")
+        image, raw_mask = self.joint(image, mask)
+        validate_labels(raw_mask, cfg.NUM_CLASSES, source=f": {mask_path}")
+        if cfg.TASK == "multiclass":
+            # PILToTensor 给 (1,H,W) uint8；CE 的 target 要 (H,W) int64
+            return image, raw_mask.squeeze(0).long()
+        # 保留旧二值链路：(1,H,W) float32
+        return image, (raw_mask > self.threshold).float()
+
+
+
 class ToySegDataset(Dataset):  # pyright: ignore[reportMissingTypeArgument]
     """玩具分割数据集：随机图 + 中心方块掩膜
 
@@ -173,19 +247,26 @@ def build_datasets():
         return train_set, val_set, test_set
 
     elif cfg.DATASET == "oxford_pet":
-        full = OxfordPetSegDataset("trainval")
+        # 无增强模式：train / val 均不做增强。
+        # 保留两个独立实例与相同 seed 的 perm，保证索引划分与增强实验完全一致，便于对照。
+        train_full = OxfordPetSegDataset("trainval", augment=False)
+        val_full = OxfordPetSegDataset("trainval", augment=False)
         test_set = OxfordPetSegDataset("test")
-        # TODO 2: 用 torch.Generator().manual_seed(cfg.SEED) 建生成器
-        # TODO 3: perm = torch.randperm(len(full), generator=g)
-        # TODO 4: val_size = int(len(full) * cfg.VAL_RATIO)
-        # TODO 5: val_set = Subset(full, perm[:val_size])；train_set = Subset(full, perm[val_size:])
-        # TODO 6: 返回 train_set, val_set, test_set
+
         g = torch.Generator().manual_seed(cfg.SEED)
-        perm = torch.randperm(len(full), generator=g)
-        val_size = int(len(full) * cfg.VAL_RATIO)
-        val_set = Subset(full, perm[:val_size])
-        train_set = Subset(full, perm[val_size:])
+        perm = torch.randperm(len(train_full), generator=g)
+        val_size = int(len(train_full) * cfg.VAL_RATIO)
+        val_set = Subset(val_full, perm[:val_size])
+        train_set = Subset(train_full, perm[val_size:])
         return train_set, val_set, test_set
+
+    elif cfg.DATASET == "plantseg":
+        # 用官方划分（train/val/test），不做二次切分；train 开增强（同步翻转 + ColorJitter），val/test 不增强
+        return (
+            PlantSegSegDataset("train", augment=True),
+            PlantSegSegDataset("val", augment=False),
+            PlantSegSegDataset("test"),
+        )
 
     else:
         raise NotImplementedError("folder loader 留到 2d")

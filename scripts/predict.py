@@ -3,13 +3,18 @@
 职责：
     1. 加载 best.pt 并切到 eval 模式
     2. 读单张图或目录里的图，做与训练一致的预处理
-    3. sigmoid → 阈值 0.5 → 二值掩膜，保存为 PNG
-    4. 输出原图 / 掩膜 / 叠加图，便于肉眼检查推理效果
+    3. 多类任务 argmax 输出类别索引图；二值任务 sigmoid + 阈值 0.5 输出 0/255 掩膜
+    4. 输出掩膜与红色叠加图，便于肉眼检查推理效果
 
-状态：已实现单图/目录推理、掩膜与红色叠加图保存。
+状态：已实现单图/目录推理，输出格式按 cfg.TASK 分流。
 """
 import argparse
+import os
+import sys
 from pathlib import Path
+
+# 允许从项目根目录直接运行 python scripts/xxx.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import torch
@@ -41,28 +46,24 @@ def collect_images(input_path):
 
 def predict_one(model, transform, image_path, output_dir, device):
     """对单张图推理，保存 mask 与 overlay"""
-    # TODO 5: image = Image.open(image_path).convert("RGB")
-    # TODO 6: orig_w, orig_h = image.size
-    # TODO 7: x = transform(image).unsqueeze(0).to(device)
-    # TODO 8: with torch.no_grad(): logits = model(x)
-    # TODO 9: probs = torch.sigmoid(logits)
-    # TODO 10: mask = (probs > cfg.THRESHOLD).float()
-    # TODO 11: mask_np = (mask.squeeze().cpu().numpy() * 255).astype(np.uint8)
-    # TODO 12: mask_img = Image.fromarray(mask_np).resize((orig_w, orig_h), Image.NEAREST)
-    # TODO 13: 保存 output_dir / f"{image_path.stem}_mask.png"
-    # TODO 14: 原图数组 copy，掩膜为真的位置涂红，保存 overlay
     image = Image.open(image_path).convert("RGB")
     orig_w, orig_h = image.size
-    x = transform(image).unsqueeze(0).to(device)
+    x = transform(image).unsqueeze(0).to(device, memory_format=torch.channels_last)
     with torch.no_grad():
         logits = model(x)
-    probs = torch.sigmoid(logits)
-    mask = (probs > cfg.THRESHOLD).float()
-    mask_np = (mask.squeeze().cpu().numpy() * 255).astype(np.uint8)
-    mask_img = Image.fromarray(mask_np).resize((orig_w, orig_h), Image.NEAREST)
+    if cfg.TASK == "multiclass":
+        # 多类：argmax 输出类别索引图 0~115，与官方标注同格式
+        cls = logits.argmax(dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
+        mask_img = Image.fromarray(cls).resize((orig_w, orig_h), Image.NEAREST)
+        foreground = np.array(mask_img) > 0
+    else:
+        probs = torch.sigmoid(logits)
+        mask = (probs > cfg.THRESHOLD).float()
+        mask_np = (mask.squeeze().cpu().numpy() * 255).astype(np.uint8)
+        mask_img = Image.fromarray(mask_np).resize((orig_w, orig_h), Image.NEAREST)
+        foreground = np.array(mask_img) > 127
     mask_img.save(output_dir / f"{image_path.stem}_mask.png")
     base = np.array(image).astype(np.float32)
-    foreground = np.array(mask_img) > 127
     base[foreground] = 0.5 * base[foreground] + 0.5 * np.array([255, 0, 0], dtype=np.float32)
     overlay = Image.fromarray(base.astype(np.uint8))
     overlay.save(output_dir / f"{image_path.stem}_overlay.png")
@@ -95,6 +96,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.smoke:
+        cfg.TASK = "binary"
+        cfg.OUT_CHANNELS = 1
         cfg.IMAGE_SIZE = 64
         if args.run_name is None:
             args.run_name = "smoke_toy"

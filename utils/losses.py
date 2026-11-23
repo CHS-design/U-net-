@@ -47,14 +47,42 @@ class BCEDiceLoss(nn.Module):
         return self.bce_weight * bce_loss + self.dice_weight * dice_loss
 
 
-def build_loss():
+def compute_class_weights(dataset, num_classes, power=0.5):
+    """统计训练掩膜的类别频率，返回加权 CE 的类别权重。
+
+    weight[c] = (1 / freq[c]) ** power，再归一化到均值 1 保持 loss 量级。
+    直接读 dataset 的掩膜文件，不经过 transform，速度快。
+    """
+    from pathlib import Path
+
+    import numpy as np
+    from PIL import Image
+
+    masks_dir = Path(dataset.masks_dir)
+    counts = np.zeros(num_classes, dtype=np.float64)
+    for image_path in dataset.image_paths:
+        mask_path = masks_dir / f"{image_path.stem}.png"
+        arr = np.asarray(Image.open(mask_path).convert("L"))
+        cls, cnt = np.unique(arr, return_counts=True)
+        valid = cls < num_classes
+        counts[cls[valid]] += cnt[valid]
+
+    freq = counts / counts.sum()
+    freq = np.clip(freq, 1e-6, None)  # 防止除零
+    weights = freq ** (-power)
+    weights = weights / weights.mean()
+    return torch.tensor(weights, dtype=torch.float32, device=cfg.DEVICE)
+
+
+def build_loss(class_weights=None):
     """按 cfg.LOSS 返回可调用损失"""
-    # TODO 11: 三个分支 + 非法值 raise ValueError
     if cfg.LOSS == "bce":
         return nn.BCEWithLogitsLoss()
     elif cfg.LOSS == "dice":
         return DiceLoss()
     elif cfg.LOSS == "bce_dice":
         return BCEDiceLoss(cfg.BCE_WEIGHT, cfg.DICE_WEIGHT)
+    elif cfg.LOSS == "ce":
+        return nn.CrossEntropyLoss(weight=class_weights)
     else:
         raise ValueError(f"未知损失类型 {cfg.LOSS}")
