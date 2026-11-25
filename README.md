@@ -4,7 +4,7 @@
 
 - 论文：*U-Net: Convolutional Networks for Biomedical Image Segmentation*
 - 任务：二值前景/背景分割（Pet / toy / folder）或 116 类语义分割（PlantSeg 论文协议）
-- 默认数据：PlantSeg v7（`0`=背景，`1~115`=病害类别）
+- 默认数据：PlantSeg v3（`0`=背景，`1~115`=病害类别，`89`=soybean rust）
 - 结构：4 次下采样，通道 `64 → 128 → 256 → 512 → 1024`，4 次上采样 + 跳跃拼接
 - 当前状态：**多类链路（CE + mIoU/mAcc）已接通；全量训练待 5080 执行**
 
@@ -69,7 +69,7 @@ pip install -r requirements.txt
 
 ## 3. 数据
 
-### 3.1 Oxford-IIIT Pet（默认）
+### 3.1 Oxford-IIIT Pet（二值基线）
 
 首次运行会自动下载到 `data/oxford-iiit-pet/`（约 800MB）。也可以手动放置：
 
@@ -100,23 +100,30 @@ data/raw/custom/
 
 文件名主干必须一致；掩膜按 8 位灰度处理，`> 127` 为前景。当前 `build_datasets()` 的 folder 分支尚未接入训练入口，属于后续扩展。
 
-### 3.4 PlantSeg（当前默认，2024 论文版）
+### 3.4 PlantSeg v3（当前默认，2024 论文版）
 
-训练集已在 `data/plantseg_v7/plantseg/`，共 7774 张带掩膜图像（图像为 jpg，掩膜为 png）：
+数据在 `data/plantsegv3/`，共 11458 张带掩膜图像（图像为 jpg，掩膜为 png），115 类病害：
 
 ```
-data/plantseg_v7/plantseg/
-├── images/       train/(5367)  val/(846)  test/(1561)
-├── annotations/  train/(5367)  val/(846)  test/(1561)
-├── Metadata.csv         # Name / Disease / Index / Split 等元信息
-└── annotation_{train,val,test}.json   # COCO 多边形标注，本管线不用
+data/plantsegv3/
+├── images/       train/(7916)  val/(1247)  test/(2295)
+├── annotations/  train/(7916)  val/(1247)  test/(2295)
+├── Metadatav2.csv             # 发行版元数据；88 号缺失、118 条错标，见下
+├── metadata_fixed.csv         # prepare_plantseg.py 生成的修正副本（含 License）
+└── annotation_{train,val,test}.json   # COCO 多边形，categories 为空，本管线不用
 ```
 
-- 图像与掩膜按同名主干配对（如 `images/train/apple_black_rot_1.jpg` ↔ `annotations/train/apple_black_rot_1.png`），已核对全部分支一一对应。
-- 掩膜是**类别索引图**：`0` 为背景，前景像素值 = `Metadata.csv` 的 `Index + 1`（1~115）。多类协议直接把原值当 class id，配 `OUT_CHANNELS=116` 的交叉熵；只有 `TASK="binary"` 时才用 `raw_mask > 0` 压成"任意病害 vs 背景"。**不能沿用 Pet 的 `==1` 或 folder 的 `>127`。**
-- 论文协议：SGD（lr `1e-3`、momentum `0.9`、weight decay `5e-4`）、batch size `16`、cross-entropy loss、mIoU/mAcc 逐类平均。本项目额外用官方 `val/` 做早停，`test/` 只在最后评估一次。
-- 图像分辨率不固定，管线统一 resize 到 `IMAGE_SIZE`；掩膜用最近邻插值，类别值不被插值污染。
-- 直接用官方 train/val/test 划分，不做二次切分；`VAL_RATIO` 只对 Pet 生效。论文原文是每类 80/20 切 train/test、没有 val，因此指标口径对齐但数字不可直接比较。
+- 图像与掩膜按同名主干配对（如 `images/train/apple_black_rot_1.jpg` ↔ `annotations/train/apple_black_rot_1.png`），11458 对一一对应。
+- 掩膜是**类别索引图**：`0` 为背景，前景像素值 = `Index + 1`（1~115；其中 `89` = soybean rust，对应 CSV 的 88 号）。多类协议直接把原值当 class id，配 `OUT_CHANNELS=116` 的交叉熵；只有 `TASK="binary"` 时才用 `raw_mask > 0` 压成"任意病害 vs 背景"。**不能沿用 Pet 的 `==1` 或 folder 的 `>127`。**
+- **发行版元数据有两处坑，已由 `scripts/prepare_plantseg.py` 处理**：
+  1. CSV 缺 88 号，118 张 soybean rust 被写成 `bean rust / Index=13`；掩膜值 89（=88+1）才是对的。修正结果写入 `metadata_fixed.csv`，并生成唯一类名表 `configs/plantseg_classes.json`；管线只读掩膜，训练不受影响。
+  2. 16 张掩膜的像素值与本行 `Index+1` 不符（文件名和 CSV 一致），由 `configs/plantseg_label_fixes.json` 在加载时修正，不改磁盘文件。
+- 15 张图带 EXIF 方向标记（14 张 90°、1 张 180°），掩膜按显示方向标注；loader 已统一 `exif_transpose`，推理脚本也保持一致。
+- 划分用发行版自带的 train/val/test；论文原文是每类 80/20 切 train/test、没有 val，因此指标口径对齐但数字不可直接比较。
+- 图像分辨率跨度 65×52 ~ 8256×5504，管线统一 resize 到 `IMAGE_SIZE`；掩膜用最近邻插值，类别值不被插值污染。
+- **类别长尾**：全库 390 : 7（55.7:1）；val 有 23 类 <5 张、63 类 <10 张，test 有 8 类 <5 张。mIoU 是逐类等权平均，单类样本过少会让曲线明显抖动；训练已开加权 CE，评估时建议同时输出 per-class IoU 与该类样本数。
+- **小目标/全前景样本**：2 张前景 100%（train）、26 张前景 >99%（train 21 / val 2 / test 3），另有 36 张前景 <0.2%（train 26 / val 3 / test 7），512 下最小只有 9 个前景像素。当前未做过滤；若要剔除，按 `metadata_fixed.csv` 的 `Mask ratio` 列筛，并在实验记录里注明。
+- 不要和 `data/plantseg_v7` 混用：v7 是 7774 张的子集，split 与类别表都不同，只是多了 `License` 列。
 
 ---
 
@@ -130,12 +137,14 @@ data/plantseg_v7/plantseg/
 |---|---|---|
 | `DATASET` | `"plantseg"` | 当前默认 PlantSeg；可切 `"oxford_pet"` / `"toy"` / `"folder"` |
 | `TASK` | `"multiclass"` | `"multiclass"`=论文协议；`"binary"`=旧 Dice/IoU 链路 |
-| `NUM_CLASSES` / `OUT_CHANNELS` | `116` / `116` | 0 背景 + 115 病害；二值任务改为 1 |
-| `PLANTSEG_ROOT` | `"./data/plantseg_v7/plantseg"` | PlantSeg 数据根目录 |
+| `NUM_CLASSES` / `OUT_CHANNELS` | `116` / `116` | 0 背景 + 115 病害（`88`=soybean rust）；二值任务改为 1 |
+| `PLANTSEG_ROOT` | `"./data/plantsegv3"` | PlantSeg v3 数据根目录（11458 张） |
+| `PLANTSEG_CLASS_MAP` | `"./configs/plantseg_classes.json"` | 掩膜值 0~115 → 作物/病名，唯一类名表 |
+| `PLANTSEG_LABEL_FIXES` | `"./configs/plantseg_label_fixes.json"` | 16 张错标掩膜的加载时修正表 |
 | `PLANTSEG_MASK_THRESHOLD` | `0` | 仅二值分支用：前景 > 0；多类分支保留原索引 |
-| `IMAGE_SIZE` | `256` | 必须是 16 的倍数 |
-| `BATCH_SIZE` | `16` | 论文值；本机冒烟覆盖为 2 |
-| `EPOCHS` | `100` | 配合 `PATIENCE=5` 早停 |
+| `IMAGE_SIZE` | `512` | 必须是 16 的倍数；论文用 512 |
+| `BATCH_SIZE` | `8` | 512 输入下 16GB 实测峰值约 8.2GB；本机冒烟覆盖为 2 |
+| `EPOCHS` | `300` | 配合 `PATIENCE=20` 早停 |
 | `NUM_WORKERS` | `4` | Linux 服务器；Windows 冒烟覆盖为 0 |
 | `BASE_CHANNELS` | `64` | 论文首层通道，冒烟不降 |
 | `NUM_DOWNS` | `4` | 4 次下采样，通道到 1024 |
@@ -144,8 +153,8 @@ data/plantseg_v7/plantseg/
 | `USE_BATCH_NORM` | `True` | 当前开启；论文原版无 BN |
 | `LOSS` | `"ce"` | 论文用交叉熵；二值任务用 `"bce_dice"` |
 | `OPTIMIZER` / `LR` / `MOMENTUM` / `WEIGHT_DECAY` | `"sgd"` / `1e-3` / `0.9` / `0.0005` | 论文给出的优化器设置 |
-| `PATIENCE` | `5` | 连续 5 轮 val 选优指标（多类 mIoU / 二值 Dice）不升则早停 |
-| `RUN_NAME` | `"unet_plantseg_mc_s256_b64_bs16_bn_bilinear_ce_sgd"` | 换数据集/超参必须同步改名 |
+| `PATIENCE` | `20` | 连续 20 轮 val mIoU 不升则早停 |
+| `RUN_NAME` | `"unet_plantseg_v3_mc_s512_b64_bs8_bn_bilinear_wce_sgd_flip_p20"` | 换数据集/超参必须同步改名 |
 
 **参数量对账**（输入 3 通道）：
 
@@ -154,7 +163,7 @@ data/plantseg_v7/plantseg/
 | 无 BN + 转置卷积（论文默认） | `31,031,745` |
 | 有 BN + 双线性（当前 config） | `28,948,673` |
 
-形状链（256 输入）：`256 → 128 → 64 → 32 → 16 → 32 → 64 → 128 → 256`。
+形状链（512 输入）：`512 → 256 → 128 → 64 → 32 → 64 → 128 → 256 → 512`。
 
 ---
 
@@ -207,23 +216,29 @@ python scripts/predict.py data/oxford-iiit-pet/images/Abyssinian_1.jpg predictio
 
 ### 5.3 PlantSeg 训练 / 评估 / 推理
 
-数据已就位，`configs/config.py` 默认 `DATASET="plantseg"`、`TASK="multiclass"`、`LOSS="ce"`、实验名 `unet_plantseg_mc_...`，无需改代码即可按论文协议运行：
+数据已就位，`configs/config.py` 默认 `DATASET="plantseg"`、`TASK="multiclass"`、`LOSS="ce"`、实验名 `unet_plantseg_v3_mc_...`，无需改代码即可按论文协议运行：
 
 ```bash
 cd /home/chs123/code/unet
 
+# 0) 体检元数据与标注：校验类别表、16 张标签修正表、metadata_fixed.csv 是否与数据一致
+#    首次需先跑一次不带 --check 的生成（会扫描全部掩膜，约 1 分钟）
+python scripts/prepare_plantseg.py
+python scripts/prepare_plantseg.py --check
+
 # 1) 先验数据管线：掩膜必须是 (H,W) int64 类别索引，最大值 <=115
+#    预期打印 7916 1247 2295，以及 torch.Size([3, 512, 512]) int64
 python -c "from utils.data import build_datasets; tr,va,te=build_datasets(); print(len(tr),len(va),len(te)); x,y=tr[0]; print(x.shape,x.dtype,y.shape,y.dtype,int(y.max()))"
 
 # 2) 训练（val mIoU 选优 + 早停；建议 tmux/nohup）
-python scripts/train.py 2>&1 | tee train_plantseg_mc.log
+python scripts/train.py 2>&1 | tee train_plantseg_v3_mc.log
 
 # 3) 曲线与测试集评估（打印 miou / macc）
 python scripts/plot_curve.py
 python scripts/evaluate.py
 
 # 4) 单图推理：*_mask.png 是类别索引图，*_overlay.png 把非背景涂红
-python scripts/predict.py data/plantseg_v7/plantseg/images/test/apple_black_rot_143.jpg predictions_plantseg
+python scripts/predict.py data/plantsegv3/images/test/apple_black_rot_143.jpg predictions_plantseg
 ```
 
 切换回 Pet 等二值实验时，必须同时改回 `DATASET="oxford_pet"`、`TASK="binary"`、`OUT_CHANNELS=1`、`LOSS="bce_dice"` 和 `RUN_NAME`；`--smoke` 分支已自动做这套切换。只改 `DATASET` 会留下多类损失与二值掩膜的不一致配置。
@@ -267,7 +282,7 @@ checkpoints/{RUN_NAME}/
 3. **损失与指标按 `TASK` 分流**：
    - 多类（PlantSeg 论文协议）：cross-entropy 吃 logits + `(B,H,W) int64` 类别索引；指标为逐类 mIoU/mAcc，按 val mIoU 选优；
    - 二值（Pet/toy/folder）：BCE/Dice，模型概率 `> THRESHOLD`（0.5），按 val Dice 选优。
-4. **Pet 用 `==1`，folder/toy 用 `>127`，PlantSeg 多类保留 `0~115` 原值**：只有 PlantSeg 的二值分支才用 `>0`，不能按灰度强度混用。
+4. **Pet 用 `==1`，folder/toy 用 `>127`，PlantSeg 多类保留 `0~115` 原值**（`89`=soybean rust，是合法类别值，不是异常）：只有 PlantSeg 的二值分支才用 `>0`，不能按灰度强度混用；16 张错标掩膜由 `configs/plantseg_label_fixes.json` 在加载时修正。
 5. **掩膜 Resize 用 NEAREST**：双线性会插出灰边，污染标签。
 6. **`CrossEntropyLoss` / `BCEWithLogitsLoss` 都吃 logits**：不要先 sigmoid 再喂损失。
 7. **固定 `RUN_NAME` 不用时间戳**：训练与推理是两个进程，时间戳目录会对不上。
@@ -289,6 +304,9 @@ checkpoints/{RUN_NAME}/
 | 交叉熵报 target dtype / shape 错 | 多类 target 必须是 `(B,H,W) int64`；检查 `PlantSegSegDataset` 的 `squeeze(0).long()` |
 | `--smoke` 报交叉熵错误 | 冒烟分支没同步切回二值；确认 `TASK/OUT_CHANNELS/LOSS` 都被覆盖 |
 | 多类指标打印成 `dice/iou/acc` | `TASK` 没切成 `"multiclass"`，或用的是旧权重/旧历史文件 |
+| CSV 里 Index 88 没有病名 / 掩膜值 89 被当成新类 | 用 `configs/plantseg_classes.json`；发行版 CSV 缺 Index 88，`metadata_fixed.csv` 已把 118 张 soybean rust 修回 88（掩膜值 89 不变） |
+| 某张图标签仍是错的 | 查 `configs/plantseg_label_fixes.json`；16 张在加载时按 `from → to` 修正，磁盘掩膜不变 |
+| 图像与掩膜看起来转了 90° | loader 已对全部图像做 `exif_transpose`；自己写脚本读图时也要加，否则 15 张会错位 |
 
 ---
 

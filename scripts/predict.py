@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 
 from configs import config as cfg
 from evaluate import load_model
@@ -46,7 +46,9 @@ def collect_images(input_path):
 
 def predict_one(model, transform, image_path, output_dir, device):
     """对单张图推理，保存 mask 与 overlay"""
-    image = Image.open(image_path).convert("RGB")
+    with Image.open(image_path) as im:
+        # 与训练一致：先按 EXIF 转正，再取原始尺寸用于回贴
+        image = ImageOps.exif_transpose(im).convert("RGB")
     orig_w, orig_h = image.size
     x = transform(image).unsqueeze(0).to(device, memory_format=torch.channels_last)
     with torch.no_grad():

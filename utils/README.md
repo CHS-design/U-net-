@@ -8,7 +8,7 @@
 
 | 文件 | 导出 | 输入 → 输出 / 要点 |
 |---|---|---|
-| `data.py` | `build_datasets` / `build_dataloaders` | 三类数据集、掩膜二值化、同步增强；返回 train/val/test |
+| `data.py` | `build_datasets` / `build_dataloaders` / `load_label_fixes` | 四类数据集、掩膜二值化、同步增强、PlantSeg 标签修正与 EXIF 转正；返回 train/val/test |
 | `losses.py` | `build_loss` / BCE+Dice | 输入 logits 与 mask，返回标量 loss；logits 不做 sigmoid（交给 `BCEWithLogitsLoss`） |
 | `metrics.py` | `dice` / `iou` / `pixel_acc` / `MetricTracker` | 阈值 0.5 后逐 batch 统计，Tracker 累加后取平均 |
 

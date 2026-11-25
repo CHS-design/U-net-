@@ -9,6 +9,8 @@
 | 文件 | 职责 | 要点 |
 |---|---|---|
 | `config.py` | 唯一真源 | 四分区（模型结构 / 数据 / 训练 / 路径）+ 派生量 + assert；阶段 1 由你亲手写 |
+| `plantseg_classes.json` | PlantSeg 类名表 | 掩膜值 0~115 → 作物/病名；由 `scripts/prepare_plantseg.py` 生成，勿手改 |
+| `plantseg_label_fixes.json` | PlantSeg 错标修正 | 16 张掩膜值的加载时 `from → to` 映射；由同一脚本生成 |
 
 ## 规矩
 

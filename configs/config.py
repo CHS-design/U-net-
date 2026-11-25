@@ -10,7 +10,7 @@ import torch  # 仅用于分区三的 DEVICE 自动判断
 IN_CHANNELS = (
     3  # Pet 转 RGB，toy 也生成 3 通道；长度必须与 NORM_MEAN/STD 一致（见末尾 assert）
 )
-NUM_CLASSES = 116  # 0=背景 + 115 类病害（PlantSeg 论文协议）；已核对全部掩膜最大索引为 115
+NUM_CLASSES = 116  # 0=背景 + 115 类病害（掩膜值 1~115）；89=soybean rust（CSV Index 88），原始 CSV 缺这一类
 OUT_CHANNELS = NUM_CLASSES  # 每类一个 logit 通道；切回二值实验时改回 1
 BASE_CHANNELS = 64  # 论文首层通道数，冒烟不降；通道序列由它派生
 NUM_DOWNS = 4  # 4 次下采样 → MIN_SIZE = 16；改它要同步改模型层数
@@ -28,9 +28,15 @@ TASK = "multiclass"  # "binary" 走原有 Dice/IoU 二值链路；"multiclass" �
 
 DATA_ROOT = "./data"  # 相对项目根，对应 .gitignore 的 data/*
 PLANTSEG_ROOT = (
-    "./data/plantseg_v7/plantseg"  # images/{train,val,test}/*.jpg + annotations/{train,val,test}/*.png
+    "./data/plantsegv3"  # 11458 张：images/{train,val,test}/*.jpg + annotations/{train,val,test}/*.png
 )
 PLANTSEG_MASK_THRESHOLD = 0  # 仅二值分支用：>0 判前景；多类分支保留原始类别索引，不走这个阈值
+PLANTSEG_CLASS_MAP = (
+    "./configs/plantseg_classes.json"  # 掩膜值 0~115 -> 作物/病名；由 prepare_plantseg.py 生成
+)
+PLANTSEG_LABEL_FIXES = (
+    "./configs/plantseg_label_fixes.json"  # 16 张错标掩膜的加载时修正表；文件缺失视为无修正
+)
 IMAGE_SIZE = (
     512  # 论文用 512；必须是 16 的倍数（4 次下采样）；小病斑在 256 下细节丢失严重
 )
@@ -76,7 +82,7 @@ DEVICE = (
 # ============================================================
 # 四、路径
 # ============================================================
-RUN_NAME = "unet_plantseg_mc_s512_b64_bs8_bn_bilinear_wce_sgd_flip_p20"  # mc=多类，s512=论文尺寸，bs8=减半，wce=加权CE，flip=仅翻转增强，p20=早停放宽到20轮
+RUN_NAME = "unet_plantseg_v3_mc_s512_b64_bs8_bn_bilinear_wce_sgd_flip_p20"  # v3=数据版本，mc=多类，s512=论文尺寸，bs8=减半，wce=加权CE，flip=仅翻转增强，p20=早停放宽到20轮
 # TODO 待你确认：项目 README 与 .gitignore 约定的是 ./checkpoints/{RUN_NAME}，此处 ./ckpt/ 与之不一致
 CKPT_DIR = f"./checkpoints/{RUN_NAME}"  # 由 RUN_NAME 派生，禁止另写一遍路径
 

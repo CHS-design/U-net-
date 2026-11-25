@@ -1,10 +1,11 @@
 """utils/data.py — 数据加载与预处理"""
 
+import json
 import random
 from pathlib import Path
 
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
 from torchvision.datasets import OxfordIIITPet
@@ -136,12 +137,31 @@ class FolderSegDataset(Dataset):
         return image, mask
 
 
+def load_label_fixes(path=cfg.PLANTSEG_LABEL_FIXES):
+    """读取 PlantSeg 错标掩膜修正表；文件不存在时返回空表（不阻断训练）
+
+    表结构见 configs/plantseg_label_fixes.json：
+        {"fixes": {"train/xxx.png": {"from": 25, "to": 24}}}
+    只修 16 张掩膜值与本行 Index+1 不符的样本，不改磁盘文件。
+    """
+    p = Path(path)
+    if not p.is_file():
+        return {}
+    with p.open(encoding="utf-8") as f:
+        return json.load(f).get("fixes", {})
+
+
 class PlantSegSegDataset(Dataset):
     """PlantSeg 语义分割：images/{split} 与 annotations/{split} 同名配对
 
-    PNG 是类别索引图：0=背景，N（1~115）=第 N 类病害。
+    PNG 是类别索引图：0=背景，N（1~115）=第 N 类病害，89=soybean rust（CSV Index 88）。
     TASK="multiclass" 时保留原索引 (H,W) int64，配 116 类交叉熵；
     TASK="binary" 时仍压成 (1,H,W) float{0,1}，兼容旧二值链路。
+
+    两个数据侧的坑在这里兜住：
+    1. 15 张图带 EXIF 方向标记（14 张 90°、1 张 180°），掩膜是按显示方向画的，
+       读图必须先 exif_transpose，否则图像与掩膜差 90°/180°；
+    2. 16 张掩膜值与本行 Index+1 不符，按 configs/plantseg_label_fixes.json 修正。
     """
 
     def __init__(self, split="train", root=cfg.PLANTSEG_ROOT, augment=False):
@@ -149,6 +169,7 @@ class PlantSegSegDataset(Dataset):
         if split not in ("train", "val", "test"):
             raise ValueError(f"PlantSeg split 只能是 train/val/test，收到 {split!r}")
         root = Path(root)
+        self.split = split
         self.images_dir = root / "images" / split
         self.masks_dir = root / "annotations" / split
         for d in (self.images_dir, self.masks_dir):
@@ -173,6 +194,7 @@ class PlantSegSegDataset(Dataset):
             augment=augment,
         )
         self.threshold = cfg.PLANTSEG_MASK_THRESHOLD
+        self.label_fixes = load_label_fixes()
 
     def __len__(self):
         return len(self.image_paths)
@@ -181,10 +203,18 @@ class PlantSegSegDataset(Dataset):
         image_path = self.image_paths[idx]
         mask_path = self.masks_dir / f"{image_path.stem}.png"
         with Image.open(image_path) as im:
-            image = im.convert("RGB")
+            # 掩膜按“显示方向”标注，图像必须先按 EXIF 转正，否则 15 张样本图文错位
+            image = ImageOps.exif_transpose(im).convert("RGB")
         with Image.open(mask_path) as im:
             mask = im.convert("L")
         image, raw_mask = self.joint(image, mask)
+        fix = self.label_fixes.get(f"{self.split}/{mask_path.name}")
+        if fix is not None:
+            raw_mask = torch.where(
+                raw_mask == fix["from"],
+                torch.full_like(raw_mask, fix["to"]),
+                raw_mask,
+            )
         validate_labels(raw_mask, cfg.NUM_CLASSES, source=f": {mask_path}")
         if cfg.TASK == "multiclass":
             # PILToTensor 给 (1,H,W) uint8；CE 的 target 要 (H,W) int64
@@ -261,7 +291,7 @@ def build_datasets():
         return train_set, val_set, test_set
 
     elif cfg.DATASET == "plantseg":
-        # 用官方划分（train/val/test），不做二次切分；train 开增强（同步翻转 + ColorJitter），val/test 不增强
+        # 用发行版划分（train/val/test），不做二次切分；train 只做同步翻转，val/test 不增强
         return (
             PlantSegSegDataset("train", augment=True),
             PlantSegSegDataset("val", augment=False),

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "note": "掩膜值与本行 Index+1 不符的 16 张；加载时按 from -> to 修正，不改磁盘文件",
+  "fixes": {
+    "train/bean_mosaic_virus_23.png": {
+      "from": 82,
+      "to": 13
+    },
+    "train/blueberry_mummy_berry_Bing_0058.png": {
+      "from": 22,
+      "to": 21
+    },
+    "train/broccoli_alternaria_leaf_spot_Bing_0012.png": {
+      "from": 25,
+      "to": 24
+    },
+    "train/broccoli_alternaria_leaf_spot_Bing_0035.png": {
+      "from": 25,
+      "to": 24
+    },
+    "train/broccoli_alternaria_leaf_spot_Bing_0039.png": {
+      "from": 25,
+      "to": 24
+    },
+    "train/cucumber_powdery_mildew_google_0067.png": {
+      "from": 49,
+      "to": 51
+    },
+    "train/eggplant_phomopsis_fruit_rot_Bing_0015.png": {
+      "from": 54,
+      "to": 53
+    },
+    "train/eggplant_phomopsis_fruit_rot_Bing_0113.png": {
+      "from": 54,
+      "to": 53
+    },
+    "train/ginger_leaf_spot_17.png": {
+      "from": 58,
+      "to": 57
+    },
+    "train/tomato_leaf_mold_google_0110.png": {
+      "from": 101,
+      "to": 100
+    },
+    "test/broccoli_alternaria_leaf_spot_Bing_0021.png": {
+      "from": 25,
+      "to": 24
+    },
+    "test/broccoli_alternaria_leaf_spot_Bing_0023.png": {
+      "from": 25,
+      "to": 24
+    },
+    "test/broccoli_alternaria_leaf_spot_Bing_0045.png": {
+      "from": 25,
+      "to": 24
+    },
+    "test/broccoli_alternaria_leaf_spot_Bing_0054.png": {
+      "from": 25,
+      "to": 24
+    },
+    "test/citrus_canker_96.png": {
+      "from": 40,
+      "to": 39
+    },
+    "test/wheat_head_scab_Bing_0287.png": {
+      "from": 106,
+      "to": 105
+    }
+  }
+}

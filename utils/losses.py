@@ -59,10 +59,16 @@ def compute_class_weights(dataset, num_classes, power=0.5):
     from PIL import Image
 
     masks_dir = Path(dataset.masks_dir)
+    fixes = getattr(dataset, "label_fixes", {})
+    split = getattr(dataset, "split", "")
     counts = np.zeros(num_classes, dtype=np.float64)
     for image_path in dataset.image_paths:
         mask_path = masks_dir / f"{image_path.stem}.png"
         arr = np.asarray(Image.open(mask_path).convert("L"))
+        # 与 Dataset 的加载时修正保持一致，否则少数样本的类别计数会落到错误的类
+        fix = fixes.get(f"{split}/{mask_path.name}")
+        if fix is not None:
+            arr = np.where(arr == fix["from"], np.uint8(fix["to"]), arr).astype(np.uint8)
         cls, cnt = np.unique(arr, return_counts=True)
         valid = cls < num_classes
         counts[cls[valid]] += cnt[valid]

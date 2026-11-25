@@ -1,0 +1,471 @@
+{
+  "num_classes": 116,
+  "background": 0,
+  "source": "data/plantsegv3/Metadatav2.csv (corrected by scripts/prepare_plantseg.py)",
+  "classes": {
+    "0": {
+      "plant": null,
+      "disease": "background"
+    },
+    "1": {
+      "plant": "Apple",
+      "disease": "apple black rot"
+    },
+    "2": {
+      "plant": "Apple",
+      "disease": "apple mosaic virus"
+    },
+    "3": {
+      "plant": "Apple",
+      "disease": "apple rust"
+    },
+    "4": {
+      "plant": "Apple",
+      "disease": "apple scab"
+    },
+    "5": {
+      "plant": "Banana",
+      "disease": "banana anthracnose"
+    },
+    "6": {
+      "plant": "Banana",
+      "disease": "banana black leaf streak"
+    },
+    "7": {
+      "plant": "Banana",
+      "disease": "banana bunchy top"
+    },
+    "8": {
+      "plant": "Banana",
+      "disease": "banana cigar end rot"
+    },
+    "9": {
+      "plant": "Banana",
+      "disease": "banana cordana leaf spot"
+    },
+    "10": {
+      "plant": "Banana",
+      "disease": "banana panama disease"
+    },
+    "11": {
+      "plant": "Basil",
+      "disease": "basil downy mildew"
+    },
+    "12": {
+      "plant": "Bean",
+      "disease": "bean halo blight"
+    },
+    "13": {
+      "plant": "Bean",
+      "disease": "bean mosaic virus"
+    },
+    "14": {
+      "plant": "Bean",
+      "disease": "bean rust"
+    },
+    "15": {
+      "plant": "Bell pepper",
+      "disease": "bell pepper bacterial spot"
+    },
+    "16": {
+      "plant": "Bell pepper",
+      "disease": "bell pepper blossom end rot"
+    },
+    "17": {
+      "plant": "Bell pepper",
+      "disease": "bell pepper frogeye leaf spot"
+    },
+    "18": {
+      "plant": "Bell pepper",
+      "disease": "bell pepper powdery mildew"
+    },
+    "19": {
+      "plant": "Blueberry",
+      "disease": "blueberry anthracnose"
+    },
+    "20": {
+      "plant": "Blueberry",
+      "disease": "blueberry botrytis blight"
+    },
+    "21": {
+      "plant": "Blueberry",
+      "disease": "blueberry mummy berry"
+    },
+    "22": {
+      "plant": "Blueberry",
+      "disease": "blueberry rust"
+    },
+    "23": {
+      "plant": "Blueberry",
+      "disease": "blueberry scorch"
+    },
+    "24": {
+      "plant": "Broccoli",
+      "disease": "broccoli alternaria leaf spot"
+    },
+    "25": {
+      "plant": "Broccoli",
+      "disease": "broccoli downy mildew"
+    },
+    "26": {
+      "plant": "Broccoli",
+      "disease": "broccoli ring spot"
+    },
+    "27": {
+      "plant": "Cabbage",
+      "disease": "cabbage alternaria leaf spot"
+    },
+    "28": {
+      "plant": "Cabbage",
+      "disease": "cabbage black rot"
+    },
+    "29": {
+      "plant": "Cabbage",
+      "disease": "cabbage downy mildew"
+    },
+    "30": {
+      "plant": "Carrot",
+      "disease": "carrot alternaria leaf blight"
+    },
+    "31": {
+      "plant": "Carrot",
+      "disease": "carrot cavity spot"
+    },
+    "32": {
+      "plant": "Carrot",
+      "disease": "carrot cercospora leaf blight"
+    },
+    "33": {
+      "plant": "Cauliflower",
+      "disease": "cauliflower alternaria leaf spot"
+    },
+    "34": {
+      "plant": "Cauliflower",
+      "disease": "cauliflower bacterial soft rot"
+    },
+    "35": {
+      "plant": "Celery",
+      "disease": "celery anthracnose"
+    },
+    "36": {
+      "plant": "Celery",
+      "disease": "celery early blight"
+    },
+    "37": {
+      "plant": "Cherry",
+      "disease": "cherry leaf spot"
+    },
+    "38": {
+      "plant": "Cherry",
+      "disease": "cherry powdery mildew"
+    },
+    "39": {
+      "plant": "Citrus",
+      "disease": "citrus canker"
+    },
+    "40": {
+      "plant": "Citrus",
+      "disease": "citrus greening disease"
+    },
+    "41": {
+      "plant": "Coffee",
+      "disease": "coffee berry blotch"
+    },
+    "42": {
+      "plant": "Coffee",
+      "disease": "coffee black rot"
+    },
+    "43": {
+      "plant": "Coffee",
+      "disease": "coffee brown eye spot"
+    },
+    "44": {
+      "plant": "Coffee",
+      "disease": "coffee leaf rust"
+    },
+    "45": {
+      "plant": "Corn",
+      "disease": "corn gray leaf spot"
+    },
+    "46": {
+      "plant": "Corn",
+      "disease": "corn northern leaf blight"
+    },
+    "47": {
+      "plant": "Corn",
+      "disease": "corn rust"
+    },
+    "48": {
+      "plant": "Corn",
+      "disease": "corn smut"
+    },
+    "49": {
+      "plant": "Cucumber",
+      "disease": "cucumber angular leaf spot"
+    },
+    "50": {
+      "plant": "Cucumber",
+      "disease": "cucumber bacterial wilt"
+    },
+    "51": {
+      "plant": "Cucumber",
+      "disease": "cucumber powdery mildew"
+    },
+    "52": {
+      "plant": "Eggplant",
+      "disease": "eggplant cercospora leaf spot"
+    },
+    "53": {
+      "plant": "Eggplant",
+      "disease": "eggplant phomopsis fruit rot"
+    },
+    "54": {
+      "plant": "Eggplant",
+      "disease": "eggplant phytophthora blight"
+    },
+    "55": {
+      "plant": "Garlic",
+      "disease": "garlic leaf blight"
+    },
+    "56": {
+      "plant": "Garlic",
+      "disease": "garlic rust"
+    },
+    "57": {
+      "plant": "Ginger",
+      "disease": "ginger leaf spot"
+    },
+    "58": {
+      "plant": "Ginger",
+      "disease": "ginger sheath blight"
+    },
+    "59": {
+      "plant": "Grape",
+      "disease": "grape black rot"
+    },
+    "60": {
+      "plant": "Grape",
+      "disease": "grape downy mildew"
+    },
+    "61": {
+      "plant": "Grape",
+      "disease": "grape leaf spot"
+    },
+    "62": {
+      "plant": "Grape",
+      "disease": "grapevine leafroll disease"
+    },
+    "63": {
+      "plant": "Lettuce",
+      "disease": "lettuce downy mildew"
+    },
+    "64": {
+      "plant": "Lettuce",
+      "disease": "lettuce mosaic virus"
+    },
+    "65": {
+      "plant": "Maple",
+      "disease": "maple tar spot"
+    },
+    "66": {
+      "plant": "Peach",
+      "disease": "peach anthracnose"
+    },
+    "67": {
+      "plant": "Peach",
+      "disease": "peach brown rot"
+    },
+    "68": {
+      "plant": "Peach",
+      "disease": "peach leaf curl"
+    },
+    "69": {
+      "plant": "Peach",
+      "disease": "peach rust"
+    },
+    "70": {
+      "plant": "Peach",
+      "disease": "peach scab"
+    },
+    "71": {
+      "plant": "Plum",
+      "disease": "plum bacterial spot"
+    },
+    "72": {
+      "plant": "Plum",
+      "disease": "plum brown rot"
+    },
+    "73": {
+      "plant": "Plum",
+      "disease": "plum pocket disease"
+    },
+    "74": {
+      "plant": "Plum",
+      "disease": "plum pox virus"
+    },
+    "75": {
+      "plant": "Plum",
+      "disease": "plum rust"
+    },
+    "76": {
+      "plant": "Potato",
+      "disease": "potato early blight"
+    },
+    "77": {
+      "plant": "Potato",
+      "disease": "potato late blight"
+    },
+    "78": {
+      "plant": "Raspberry",
+      "disease": "raspberry fire blight"
+    },
+    "79": {
+      "plant": "Raspberry",
+      "disease": "raspberry gray mold"
+    },
+    "80": {
+      "plant": "Raspberry",
+      "disease": "raspberry leaf spot"
+    },
+    "81": {
+      "plant": "Raspberry",
+      "disease": "raspberry yellow rust"
+    },
+    "82": {
+      "plant": "Rice",
+      "disease": "rice blast"
+    },
+    "83": {
+      "plant": "Rice",
+      "disease": "rice sheath blight"
+    },
+    "84": {
+      "plant": "Soybean",
+      "disease": "soybean bacterial blight"
+    },
+    "85": {
+      "plant": "Soybean",
+      "disease": "soybean brown spot"
+    },
+    "86": {
+      "plant": "Soybean",
+      "disease": "soybean downy mildew"
+    },
+    "87": {
+      "plant": "Soybean",
+      "disease": "soybean frog eye leaf spot"
+    },
+    "88": {
+      "plant": "Soybean",
+      "disease": "soybean mosaic"
+    },
+    "89": {
+      "plant": "Soybean",
+      "disease": "soybean rust"
+    },
+    "90": {
+      "plant": "Squash",
+      "disease": "squash powdery mildew"
+    },
+    "91": {
+      "plant": "Strawberry",
+      "disease": "strawberry anthracnose"
+    },
+    "92": {
+      "plant": "Strawberry",
+      "disease": "strawberry leaf scorch"
+    },
+    "93": {
+      "plant": "Tobacco",
+      "disease": "tobacco blue mold"
+    },
+    "94": {
+      "plant": "Tobacco",
+      "disease": "tobacco brown spot"
+    },
+    "95": {
+      "plant": "Tobacco",
+      "disease": "tobacco frogeye leaf spot"
+    },
+    "96": {
+      "plant": "Tobacco",
+      "disease": "tobacco mosaic virus"
+    },
+    "97": {
+      "plant": "Tomato",
+      "disease": "tomato bacterial leaf spot"
+    },
+    "98": {
+      "plant": "Tomato",
+      "disease": "tomato early blight"
+    },
+    "99": {
+      "plant": "Tomato",
+      "disease": "tomato late blight"
+    },
+    "100": {
+      "plant": "Tomato",
+      "disease": "tomato leaf mold"
+    },
+    "101": {
+      "plant": "Tomato",
+      "disease": "tomato mosaic virus"
+    },
+    "102": {
+      "plant": "Tomato",
+      "disease": "tomato septoria leaf spot"
+    },
+    "103": {
+      "plant": "Tomato",
+      "disease": "tomato yellow leaf curl virus"
+    },
+    "104": {
+      "plant": "Wheat",
+      "disease": "wheat bacterial leaf streak (black chaff)"
+    },
+    "105": {
+      "plant": "Wheat",
+      "disease": "wheat head scab"
+    },
+    "106": {
+      "plant": "Wheat",
+      "disease": "wheat leaf rust"
+    },
+    "107": {
+      "plant": "Wheat",
+      "disease": "wheat loose smut"
+    },
+    "108": {
+      "plant": "Wheat",
+      "disease": "wheat powdery mildew"
+    },
+    "109": {
+      "plant": "Wheat",
+      "disease": "wheat septoria blotch"
+    },
+    "110": {
+      "plant": "Wheat",
+      "disease": "wheat stem rust"
+    },
+    "111": {
+      "plant": "Wheat",
+      "disease": "wheat stripe rust"
+    },
+    "112": {
+      "plant": "Zucchini",
+      "disease": "zucchini bacterial wilt"
+    },
+    "113": {
+      "plant": "Zucchini",
+      "disease": "zucchini downy mildew"
+    },
+    "114": {
+      "plant": "Zucchini",
+      "disease": "zucchini powdery mildew"
+    },
+    "115": {
+      "plant": "Zucchini",
+      "disease": "zucchini yellow mosaic virus"
+    }
+  }
+}
